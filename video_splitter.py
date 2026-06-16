@@ -1,7 +1,8 @@
 import os
+import random
 from moviepy.video.io.VideoFileClip import VideoFileClip
 
-def split_video_into_parts(video_path, start_time_str, part_duration_min=4):
+def split_video_into_parts(video_path, start_time_str, min_duration_min=3, max_duration_min=5):
     # 1. Convert the start time to seconds
     try:
         parts = list(map(int, start_time_str.split(':')))
@@ -23,7 +24,6 @@ def split_video_into_parts(video_path, start_time_str, part_duration_min=4):
         
     clip = VideoFileClip(video_path)
     video_duration = clip.duration
-    part_duration_sec = part_duration_min * 60
 
     # 3. Create the output folder
     output_folder = "Output_Parts"
@@ -31,12 +31,16 @@ def split_video_into_parts(video_path, start_time_str, part_duration_min=4):
         os.makedirs(output_folder)
 
     print("--- Video splitting started ---")
+    print(f"💡 Each part will have a random duration between {min_duration_min}-{max_duration_min} minutes")
     
     current_start = start_time
     part_number = 1
 
-    # 4. Split the video into parts
+    # 4. Split the video into parts with random durations
     while current_start < video_duration:
+        # Generate random duration between min and max (in seconds)
+        random_duration_min = random.randint(min_duration_min, max_duration_min)
+        part_duration_sec = random_duration_min * 60
         current_end = current_start + part_duration_sec
         
         if current_end > video_duration:
@@ -44,7 +48,12 @@ def split_video_into_parts(video_path, start_time_str, part_duration_min=4):
 
         output_filename = os.path.join(output_folder, f"Part_{part_number}.mp4")
         
-        print(f"🎬 Cutting Part {part_number} ({current_start}s to {current_end}s)...")
+        # Convert seconds to MM:SS format for display
+        start_min, start_sec = divmod(int(current_start), 60)
+        end_min, end_sec = divmod(int(current_end), 60)
+        duration_min_display, duration_sec_display = divmod(int(current_end - current_start), 60)
+        
+        print(f"🎬 Cutting Part {part_number} ({start_min}:{start_sec:02d} to {end_min}:{end_sec:02d}) - Duration: {duration_min_display}:{duration_sec_display:02d}...")
         
         # Here we use .subclipped to match the newer MoviePy version instead of .subclip
         sub_clip = clip.subclipped(current_start, current_end)
@@ -65,12 +74,18 @@ if __name__ == "__main__":
     print("===================================")
     video_location = input("Enter the video file path: ")
     start_at = input("Enter the start time to split from (HH:MM:SS): ")
-    duration_min = input("Enter the split duration in minutes (whole number): ")
+    duration_range = input("Enter the duration range in minutes (e.g., 2-4 or 3-5): ")
     try:
-        duration_min = int(duration_min)
-        if duration_min <= 0:
+        # Parse the range format "min-max"
+        range_parts = duration_range.split('-')
+        if len(range_parts) != 2:
+            raise ValueError
+        min_duration = int(range_parts[0].strip())
+        max_duration = int(range_parts[1].strip())
+        
+        if min_duration <= 0 or max_duration <= 0 or min_duration > max_duration:
             raise ValueError
     except ValueError:
-        print("❌ Invalid duration. Please enter a positive whole number of minutes.")
+        print("❌ Invalid duration range. Please use format like '2-4' or '3-5'.")
     else:
-        split_video_into_parts(video_location, start_at, part_duration_min=duration_min)
+        split_video_into_parts(video_location, start_at, min_duration_min=min_duration, max_duration_min=max_duration)
